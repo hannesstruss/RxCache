@@ -1,5 +1,7 @@
 # RxCache
 
+[![Build Status](https://travis-ci.org/hannesstruss/RxCache.svg?branch=master)](https://travis-ci.org/hannesstruss/RxCache)
+
 A simple cache based on RxJava
 
 ## Example:
