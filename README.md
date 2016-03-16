@@ -8,8 +8,9 @@ A simple cache based on RxJava
 
 ```java
 long expiryMs = 1000;
+Observable<String> coldSource = api.getMessageOfTheDay();
 
-RxCache<String> cache = new RxCache<>(expiryMs, api.getMessageOfTheDay());
+RxCache<String> cache = new RxCache<>(expiryMs, coldSource);
 
 cache.get().subscribe(new Action1<String>() {
   @Override
