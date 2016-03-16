@@ -7,7 +7,9 @@ A simple cache based on RxJava
 ## Example
 
 ```java
-RxCache<String> cache = new RxCache<>(1000, api.getMessageOfTheDay());
+long expiryMs = 1000;
+
+RxCache<String> cache = new RxCache<>(expiryMs, api.getMessageOfTheDay());
 
 cache.get().subscribe(new Action1<String>() {
   @Override
