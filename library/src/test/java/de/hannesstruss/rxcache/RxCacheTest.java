@@ -7,9 +7,11 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import rx.Observable;
 import rx.Subscriber;
+import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func0;
+import rx.observers.TestSubscriber;
 import rx.schedulers.TestScheduler;
 
 import java.util.concurrent.TimeUnit;
@@ -22,20 +24,13 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 public class RxCacheTest {
   private static final long EXPIRY = 1000;
 
-  @Mock
-  Action1<Long> action;
-  @Mock Action1<Throwable> errorAction;
-  @Mock
-  Action0 completeAction;
-
   private Func0<Observable<Long>> producer;
   private TestScheduler scheduler;
   private RxCache<Long> cache;
+  private TestSubscriber<Long> subscriber;
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
-
     scheduler = new TestScheduler();
     producer = new Func0<Observable<Long>>() {
       @Override public Observable<Long> call() {
@@ -49,20 +44,22 @@ public class RxCacheTest {
             return producer.call();
           }
         }));
+
+    subscriber = new TestSubscriber<>();
   }
 
   @Test
   public void shouldReturnCachedValues() {
     final long firstValue = scheduler.now();
 
-    cache.get().subscribe(action);
-    verify(action).call(firstValue);
+    cache.get().subscribe(subscriber);
+    subscriber.assertValues(firstValue);
 
     scheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS);
 
-    Mockito.reset(action);
-    cache.get().subscribe(action);
-    verify(action).call(firstValue);
+    TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
+    cache.get().subscribe(subscriber2);
+    subscriber2.assertValues(firstValue);
   }
 
   @Test public void shouldReturnCachedValuesWithAsyncScheduler() {
@@ -84,22 +81,22 @@ public class RxCacheTest {
   @Test public void shouldRefreshCacheWhenItExpires() {
     final long firstValue = scheduler.now();
 
-    cache.get().subscribe(action);
-    verify(action).call(firstValue);
+    cache.get().subscribe(subscriber);
+    subscriber.assertValues(firstValue);
 
     // advance over expiry, expect refreshed cache
     scheduler.advanceTimeBy(1500, TimeUnit.MILLISECONDS);
 
-    Mockito.reset(action);
-    cache.get().subscribe(action);
-    verify(action).call(firstValue + 1500);
+    TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
+    cache.get().subscribe(subscriber2);
+    subscriber2.assertValues(firstValue + 1500);
 
     // advance within expiration period, expect same cached data as before
     scheduler.advanceTimeBy(300, TimeUnit.MILLISECONDS);
 
-    Mockito.reset(action);
-    cache.get().subscribe(action);
-    verify(action).call(firstValue + 1500);
+    TestSubscriber<Long> subscriber3 = new TestSubscriber<>();
+    cache.get().subscribe(subscriber3);
+    subscriber3.assertValues(firstValue + 1500);
   }
 
   @Test public void shouldAvoidCacheStampede() {
@@ -115,7 +112,7 @@ public class RxCacheTest {
     cache = new RxCache<>(EXPIRY, scheduler, o.delay(500, TimeUnit.MILLISECONDS, scheduler));
 
     // Warm up cache
-    cache.get().subscribe(action);
+    cache.get().subscribe();
     scheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS);
     assertThat(countingProducer.get()).isEqualTo(1);
 
@@ -123,11 +120,11 @@ public class RxCacheTest {
     scheduler.advanceTimeBy(EXPIRY * 2, TimeUnit.MILLISECONDS);
 
     // Fetch new data
-    cache.get().subscribe(action);
+    cache.get().subscribe();
 
     // Subscribe second time while request is still running
     scheduler.advanceTimeBy(250, TimeUnit.MILLISECONDS);
-    cache.get().subscribe(action);
+    cache.get().subscribe();
 
     // Wait for all requests to finish
     scheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS);
@@ -137,8 +134,8 @@ public class RxCacheTest {
   }
 
   @Test public void shouldComplete() {
-    cache.get().subscribe(action, errorAction, completeAction);
-    verify(completeAction).call();
+    cache.get().subscribe(subscriber);
+    subscriber.assertCompleted();
   }
 
   @Test public void shouldPropagateErrors() {
@@ -149,10 +146,10 @@ public class RxCacheTest {
       }
     };
 
-    cache.get().subscribe(action, errorAction);
+    cache.get().subscribe(subscriber);
 
-    verifyNoMoreInteractions(action);
-    verify(errorAction).call(e);
+    subscriber.assertError(e);
+    subscriber.assertNoValues();
   }
 
   @Test public void shouldNotCacheErrors() {
@@ -163,8 +160,8 @@ public class RxCacheTest {
       }
     };
 
-    cache.get().subscribe(action, errorAction);
-    verify(errorAction).call(e);
+    cache.get().subscribe(subscriber);
+    subscriber.assertError(e);
 
     producer = new Func0<Observable<Long>>() {
       @Override public Observable<Long> call() {
@@ -172,7 +169,8 @@ public class RxCacheTest {
       }
     };
 
-    cache.get().subscribe(action);
-    verify(action).call(2355L);
+    TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
+    cache.get().subscribe(subscriber2);
+    subscriber2.assertValues(2355L);
   }
 }
