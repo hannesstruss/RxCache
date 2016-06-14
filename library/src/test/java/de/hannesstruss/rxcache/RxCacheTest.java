@@ -2,12 +2,8 @@ package de.hannesstruss.rxcache;
 
 import org.junit.Before;
 import org.junit.Test;
-import rx.Observable;
 import rx.Single;
 import rx.SingleSubscriber;
-import rx.Subscriber;
-import rx.functions.Action0;
-import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.observers.TestSubscriber;
 import rx.schedulers.TestScheduler;
@@ -58,22 +54,6 @@ public class RxCacheTest {
     TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
     cache.get().subscribe(subscriber2);
     subscriber2.assertValues(firstValue);
-  }
-
-  @Test public void shouldReturnCachedValuesWithAsyncScheduler() {
-    final AtomicLong results = new AtomicLong(0);
-    cache = new RxCache<>(500, Single.defer(new Func0<Single<Long>>() {
-      @Override public Single<Long> call() {
-        return Single.just(results.getAndIncrement());
-      }
-    }));
-
-    long first = cache.get().toBlocking().first();
-    long second = cache.get().toBlocking().first();
-    long third = cache.get().toBlocking().first();
-
-    assertThat(second).isEqualTo(first);
-    assertThat(third).isEqualTo(first);
   }
 
   @Test public void shouldRefreshCacheWhenItExpires() {
@@ -130,11 +110,6 @@ public class RxCacheTest {
     assertThat(countingProducer.get()).isEqualTo(2);
   }
 
-  @Test public void shouldComplete() {
-    cache.get().subscribe(subscriber);
-    subscriber.assertCompleted();
-  }
-
   @Test public void shouldPropagateErrors() {
     final Exception e = new RuntimeException("Test");
     producer = new Func0<Single<Long>>() {
@@ -168,6 +143,7 @@ public class RxCacheTest {
 
     TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
     cache.get().subscribe(subscriber2);
+    subscriber2.assertNoTerminalEvent();
     subscriber2.assertValues(2355L);
   }
 
@@ -207,7 +183,6 @@ public class RxCacheTest {
     cache.sync().subscribe(syncSubscriber2);
 
     syncSubscriber.assertError(RuntimeException.class);
-    syncSubscriber2.assertValues(firstValue + EXPIRY);
     syncSubscriber2.assertCompleted();
     subscriber.assertNoTerminalEvent();
     subscriber.assertValues(firstValue);
