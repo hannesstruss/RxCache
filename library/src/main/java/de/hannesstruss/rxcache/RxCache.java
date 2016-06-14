@@ -29,7 +29,8 @@ public final class RxCache<T> {
   };
 
   /**
-   * Creates a new {@code RxCache} that expires after {@code expiryMs} milliseconds.
+   * Creates a new {@code RxCache} that expires after {@code expiryMs} milliseconds. {@code coldSource} must be
+   * a cold Observable.
    */
   @SuppressWarnings("unused")
   public RxCache(long expiryMs, Single<T> coldSource) {
@@ -38,7 +39,8 @@ public final class RxCache<T> {
 
   /**
    * Creates a new {@code RxCache} that expires after {@code expiryMs} milliseconds. {@code timestampScheduler}
-   * will be used to obtain the timestamp driving expiry.
+   * will be used to obtain the timestamp driving expiry. {@code coldSource} must be
+   * a cold Observable.
    */
   public RxCache(long expiryMs, Scheduler timestampScheduler, Single<T> coldSource) {
     this.expiryMs = expiryMs;
