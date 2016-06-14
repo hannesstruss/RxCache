@@ -18,6 +18,9 @@ cache.get().subscribe(new Action1<String>() {
     System.out.println(s);
   }
 });
+
+// Fetch new value and emit to all subscribers of cache.get():
+cache.sync().subscribe();
 ```
 
 ## Install
