@@ -5,6 +5,7 @@ Changelog
 ================
 
 - Added `RxCache#sync()`
+- `coldSource` must be an `rx.Single<T>` now
 - `RxCache#get` does not complete anymore. Use `.first()` instead.
 - `RxCache` is final
 - Depends on RxJava 1.1.5

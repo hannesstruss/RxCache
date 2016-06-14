@@ -3,6 +3,7 @@ package de.hannesstruss.rxcache;
 import rx.Completable;
 import rx.Observable;
 import rx.Scheduler;
+import rx.Single;
 import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.functions.Func1;
@@ -11,7 +12,7 @@ import rx.schedulers.Timestamped;
 
 public final class RxCache<T> {
   private final long expiryMs;
-  private final Observable<T> coldSource;
+  private final Single<T> coldSource;
   private final Scheduler scheduler;
 
   private Observable<Timestamped<T>> cache;
@@ -28,11 +29,11 @@ public final class RxCache<T> {
     }
   };
 
-  public RxCache(long expiryMs, Observable<T> coldSource) {
+  public RxCache(long expiryMs, Single<T> coldSource) {
     this(expiryMs, Schedulers.immediate(), coldSource);
   }
 
-  public RxCache(long expiryMs, Scheduler timestampScheduler, Observable<T> coldSource) {
+  public RxCache(long expiryMs, Scheduler timestampScheduler, Single<T> coldSource) {
     this.expiryMs = expiryMs;
     this.coldSource = coldSource;
     this.scheduler = timestampScheduler;
@@ -47,7 +48,7 @@ public final class RxCache<T> {
 
   /** Fetches a new value, caches it and immediately emits it to subscribers */
   public Completable sync() {
-    return null;
+    return fetch().map(unwrap).toCompletable();
   }
 
   public void invalidate() {
@@ -57,7 +58,7 @@ public final class RxCache<T> {
   private Observable<Timestamped<T>> fetch() {
     return Observable.defer(new Func0<Observable<Timestamped<T>>>() {
       @Override public Observable<Timestamped<T>> call() {
-        cache = coldSource.timestamp(scheduler).cache();
+        cache = coldSource.toObservable().timestamp(scheduler).cache();
         return cache;
       }
     }).doOnError(new Action1<Throwable>() {

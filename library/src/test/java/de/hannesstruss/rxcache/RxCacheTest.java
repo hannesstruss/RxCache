@@ -3,6 +3,8 @@ package de.hannesstruss.rxcache;
 import org.junit.Before;
 import org.junit.Test;
 import rx.Observable;
+import rx.Single;
+import rx.SingleSubscriber;
 import rx.Subscriber;
 import rx.functions.Action0;
 import rx.functions.Action1;
@@ -20,7 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 public class RxCacheTest {
   private static final long EXPIRY = 1000;
 
-  private Func0<Observable<Long>> producer;
+  private Func0<Single<Long>> producer;
   private TestScheduler scheduler;
   private RxCache<Long> cache;
   private TestSubscriber<Long> subscriber;
@@ -28,15 +30,15 @@ public class RxCacheTest {
   @Before
   public void setUp() {
     scheduler = new TestScheduler();
-    producer = new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
-        return Observable.just(scheduler.now());
+    producer = new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
+        return Single.just(scheduler.now());
       }
     };
 
-    cache = new RxCache<>(EXPIRY, scheduler, Observable.defer(
-        new Func0<Observable<Long>>() {
-          @Override public Observable<Long> call() {
+    cache = new RxCache<>(EXPIRY, scheduler, Single.defer(
+        new Func0<Single<Long>>() {
+          @Override public Single<Long> call() {
             return producer.call();
           }
         }));
@@ -60,9 +62,9 @@ public class RxCacheTest {
 
   @Test public void shouldReturnCachedValuesWithAsyncScheduler() {
     final AtomicLong results = new AtomicLong(0);
-    cache = new RxCache<>(500, Observable.defer(new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
-        return Observable.just(results.getAndIncrement());
+    cache = new RxCache<>(500, Single.defer(new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
+        return Single.just(results.getAndIncrement());
       }
     }));
 
@@ -98,10 +100,9 @@ public class RxCacheTest {
   @Test public void shouldAvoidCacheStampede() {
     final AtomicLong countingProducer = new AtomicLong(0);
 
-    Observable<Long> o = Observable.create(new Observable.OnSubscribe<Long>() {
-      @Override public void call(Subscriber<? super Long> subscriber) {
-        subscriber.onNext(countingProducer.getAndIncrement());
-        subscriber.onCompleted();
+    Single<Long> o = Single.create(new Single.OnSubscribe<Long>() {
+      @Override public void call(SingleSubscriber<? super Long> singleSubscriber) {
+        singleSubscriber.onSuccess(countingProducer.getAndIncrement());
       }
     });
 
@@ -136,9 +137,9 @@ public class RxCacheTest {
 
   @Test public void shouldPropagateErrors() {
     final Exception e = new RuntimeException("Test");
-    producer = new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
-        return Observable.error(e);
+    producer = new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
+        return Single.error(e);
       }
     };
 
@@ -150,18 +151,18 @@ public class RxCacheTest {
 
   @Test public void shouldNotCacheErrors() {
     final Exception e = new RuntimeException("Test");
-    producer = new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
-        return Observable.error(e);
+    producer = new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
+        return Single.error(e);
       }
     };
 
     cache.get().subscribe(subscriber);
     subscriber.assertError(e);
 
-    producer = new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
-        return Observable.just(2355L);
+    producer = new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
+        return Single.just(2355L);
       }
     };
 
@@ -185,12 +186,12 @@ public class RxCacheTest {
   @Test public void failedSyncShouldNotAffectSubscribers() {
     long firstValue = scheduler.now();
     final AtomicBoolean fail = new AtomicBoolean(false);
-    producer = new Func0<Observable<Long>>() {
-      @Override public Observable<Long> call() {
+    producer = new Func0<Single<Long>>() {
+      @Override public Single<Long> call() {
         if (fail.get()) {
-          return Observable.error(new RuntimeException("FAIL"));
+          return Single.error(new RuntimeException("FAIL"));
         }
-        return Observable.just(scheduler.now());
+        return Single.just(scheduler.now());
       }
     };
 
