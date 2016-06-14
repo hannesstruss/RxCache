@@ -8,7 +8,7 @@ import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 import rx.schedulers.Timestamped;
 
-public class RxCache<T> {
+public final class RxCache<T> {
   private final long expiryMs;
   private final Observable<T> coldSource;
   private final Scheduler scheduler;
