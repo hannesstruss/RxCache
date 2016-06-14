@@ -2,12 +2,8 @@ package de.hannesstruss.rxcache;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import rx.Observable;
 import rx.Subscriber;
-import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func0;
@@ -15,12 +11,12 @@ import rx.observers.TestSubscriber;
 import rx.schedulers.TestScheduler;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+@SuppressWarnings("unchecked")
 public class RxCacheTest {
   private static final long EXPIRY = 1000;
 
@@ -172,5 +168,47 @@ public class RxCacheTest {
     TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
     cache.get().subscribe(subscriber2);
     subscriber2.assertValues(2355L);
+  }
+
+  @Test public void shouldSyncAndEmit() {
+    long firstValue = scheduler.now();
+    cache.get().subscribe(subscriber);
+    subscriber.assertValueCount(1);
+    subscriber.assertNoTerminalEvent();
+
+    scheduler.advanceTimeBy(EXPIRY, TimeUnit.MILLISECONDS);
+
+    cache.sync().subscribe();
+    subscriber.assertValues(firstValue, scheduler.now());
+  }
+
+  @Test public void failedSyncShouldNotAffectSubscribers() {
+    long firstValue = scheduler.now();
+    final AtomicBoolean fail = new AtomicBoolean(false);
+    producer = new Func0<Observable<Long>>() {
+      @Override public Observable<Long> call() {
+        if (fail.get()) {
+          return Observable.error(new RuntimeException("FAIL"));
+        }
+        return Observable.just(scheduler.now());
+      }
+    };
+
+    cache.get().subscribe(subscriber);
+
+    fail.set(true);
+    TestSubscriber<Long> syncSubscriber = new TestSubscriber<>();
+    cache.sync().subscribe(syncSubscriber);
+
+    scheduler.advanceTimeBy(EXPIRY, TimeUnit.MILLISECONDS);
+    fail.set(false);
+    TestSubscriber<Long> syncSubscriber2 = new TestSubscriber<>();
+    cache.sync().subscribe(syncSubscriber2);
+
+    syncSubscriber.assertError(RuntimeException.class);
+    syncSubscriber2.assertValues(firstValue + EXPIRY);
+    syncSubscriber2.assertCompleted();
+    subscriber.assertNoTerminalEvent();
+    subscriber.assertValues(firstValue);
   }
 }

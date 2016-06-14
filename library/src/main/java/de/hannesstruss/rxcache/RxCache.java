@@ -1,5 +1,6 @@
 package de.hannesstruss.rxcache;
 
+import rx.Completable;
 import rx.Observable;
 import rx.Scheduler;
 import rx.functions.Action1;
@@ -42,6 +43,11 @@ public final class RxCache<T> {
     return Observable.concat(cache, fetch())
         .first(isFresh)
         .map(unwrap);
+  }
+
+  /** Fetches a new value, caches it and immediately emits it to subscribers */
+  public Completable sync() {
+    return null;
   }
 
   public void invalidate() {

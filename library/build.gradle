@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-  compile 'io.reactivex:rxjava:1.1.1'
+  compile 'io.reactivex:rxjava:1.1.5'
 
   testCompile 'junit:junit:4.11'
   testCompile 'com.google.truth:truth:0.28'
