@@ -20,6 +20,10 @@ cache.get().subscribe(new Action1<String>() {
 });
 ```
 
+## Changes
+
+- 0.1
+
 ## Install
 
 Via Maven:
