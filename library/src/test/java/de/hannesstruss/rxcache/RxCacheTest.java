@@ -211,4 +211,16 @@ public class RxCacheTest {
     subscriber.assertNoTerminalEvent();
     subscriber.assertValues(firstValue);
   }
+
+  @Test public void syncResultShouldBeCached() {
+    long firstValue = scheduler.now();
+    cache.get().subscribe(subscriber);
+    scheduler.advanceTimeBy(EXPIRY, TimeUnit.MILLISECONDS);
+
+    cache.sync().subscribe();
+    scheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS);
+    TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
+    cache.get().subscribe(subscriber2);
+    subscriber2.assertValues(firstValue + EXPIRY);
+  }
 }
