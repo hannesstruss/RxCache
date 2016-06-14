@@ -185,7 +185,7 @@ public class RxCacheTest {
     syncSubscriber.assertError(RuntimeException.class);
     syncSubscriber2.assertCompleted();
     subscriber.assertNoTerminalEvent();
-    subscriber.assertValues(firstValue);
+    subscriber.assertValues(firstValue, firstValue + EXPIRY);
   }
 
   @Test public void syncResultShouldBeCached() {
