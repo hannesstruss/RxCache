@@ -85,8 +85,9 @@ public final class RxCache<T> {
   private Observable<Timestamped<T>> fetch() {
     return Observable.defer(new Func0<Observable<Timestamped<T>>>() {
       @Override public Observable<Timestamped<T>> call() {
-        cache = coldSource.timestamp(scheduler).cache();
-        return cache;
+        Observable<Timestamped<T>> newCache = coldSource.timestamp(scheduler).cache();
+        cache = newCache;
+        return newCache;
       }
     }).doOnError(new Action1<Throwable>() {
       @Override public void call(Throwable throwable) {
