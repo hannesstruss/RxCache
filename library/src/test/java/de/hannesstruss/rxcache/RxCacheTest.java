@@ -22,13 +22,22 @@ public class RxCacheTest {
   private TestScheduler scheduler;
   private RxCache<Long> cache;
   private TestSubscriber<Long> subscriber;
+  private AtomicBoolean fetchFails;
+  private Exception fetchError;
 
   @Before
   public void setUp() {
+    fetchFails = new AtomicBoolean(false);
+    fetchError = new RuntimeException("Fail!");
+
     scheduler = new TestScheduler();
     producer = new Func0<Single<Long>>() {
       @Override public Single<Long> call() {
-        return Single.just(scheduler.now());
+        if (fetchFails.get()) {
+          return Single.error(fetchError);
+        } else {
+          return Single.just(scheduler.now());
+        }
       }
     };
 
@@ -111,29 +120,19 @@ public class RxCacheTest {
   }
 
   @Test public void shouldPropagateErrors() {
-    final Exception e = new RuntimeException("Test");
-    producer = new Func0<Single<Long>>() {
-      @Override public Single<Long> call() {
-        return Single.error(e);
-      }
-    };
+    fetchFails.set(true);
 
     cache.get().subscribe(subscriber);
 
-    subscriber.assertError(e);
+    subscriber.assertError(fetchError);
     subscriber.assertNoValues();
   }
 
   @Test public void shouldNotCacheErrors() {
-    final Exception e = new RuntimeException("Test");
-    producer = new Func0<Single<Long>>() {
-      @Override public Single<Long> call() {
-        return Single.error(e);
-      }
-    };
+    fetchFails.set(true);
 
     cache.get().subscribe(subscriber);
-    subscriber.assertError(e);
+    subscriber.assertError(fetchError);
 
     producer = new Func0<Single<Long>>() {
       @Override public Single<Long> call() {
@@ -161,28 +160,19 @@ public class RxCacheTest {
 
   @Test public void failedSyncShouldNotAffectSubscribers() {
     long firstValue = scheduler.now();
-    final AtomicBoolean fail = new AtomicBoolean(false);
-    producer = new Func0<Single<Long>>() {
-      @Override public Single<Long> call() {
-        if (fail.get()) {
-          return Single.error(new RuntimeException("FAIL"));
-        }
-        return Single.just(scheduler.now());
-      }
-    };
 
     cache.get().subscribe(subscriber);
 
-    fail.set(true);
+    fetchFails.set(true);
     TestSubscriber<Long> syncSubscriber = new TestSubscriber<>();
     cache.sync().subscribe(syncSubscriber);
 
     scheduler.advanceTimeBy(EXPIRY, TimeUnit.MILLISECONDS);
-    fail.set(false);
+    fetchFails.set(false);
     TestSubscriber<Long> syncSubscriber2 = new TestSubscriber<>();
     cache.sync().subscribe(syncSubscriber2);
 
-    syncSubscriber.assertError(RuntimeException.class);
+    syncSubscriber.assertError(fetchError);
     syncSubscriber2.assertCompleted();
     subscriber.assertNoTerminalEvent();
     subscriber.assertValues(firstValue, firstValue + EXPIRY);
@@ -198,5 +188,20 @@ public class RxCacheTest {
     TestSubscriber<Long> subscriber2 = new TestSubscriber<>();
     cache.get().subscribe(subscriber2);
     subscriber2.assertValues(firstValue + EXPIRY);
+  }
+
+  @Test public void updatesShouldNotError() {
+    fetchFails.set(true);
+
+    cache.updates().subscribe(subscriber);
+
+    scheduler.advanceTimeBy(500, TimeUnit.MILLISECONDS);
+    long ts = scheduler.now();
+
+    fetchFails.set(false);
+    cache.sync().subscribe();
+
+    subscriber.assertNoErrors();
+    subscriber.assertValues(ts);
   }
 }

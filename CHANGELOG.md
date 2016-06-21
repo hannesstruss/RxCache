@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+1.1 (2016-06-21)
+================
+
+- Added `RxCache#updates()`, a version of `#get()` that never emits errors.
+
 1.0 (2016-06-14)
 ================
 

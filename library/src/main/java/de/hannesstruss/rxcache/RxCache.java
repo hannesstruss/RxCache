@@ -53,14 +53,32 @@ public final class RxCache<T> {
   }
 
   /**
+   * Get a stream of values. This never errors. If the cache is empty and the initial fetch fails,
+   * this won't emit any values until {@link #sync} is called.
+   */
+  public Observable<T> updates() {
+    return get(true);
+  }
+
+  /**
    * Get a stream of values which can error if the cache is empty/stale and fetching the value errors.
    */
   public Observable<T> get() {
+    return get(false);
+  }
+
+  private Observable<T> get(boolean suppressErrors) {
+    Observable<T> fromCacheOrFetch = Observable.concat(cache, fetch())
+        .first(isFresh)
+        .map(unwrap);
+
+    if (suppressErrors) {
+      fromCacheOrFetch = fromCacheOrFetch.onErrorResumeNext(Observable.<T>empty());
+    }
+
     return Observable.merge(
         updates,
-        Observable.concat(cache, fetch())
-            .first(isFresh)
-            .map(unwrap)
+        fromCacheOrFetch
     );
   }
 
